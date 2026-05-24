@@ -14,20 +14,24 @@ function NativeTabLayout() {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
-        <Label>Courts</Label>
+        <Icon sf={{ default: "house", selected: "house.fill" }} />
+        <Label>Home</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="feed">
-        <Icon sf={{ default: "flame", selected: "flame.fill" }} />
-        <Label>Feed</Label>
+      <NativeTabs.Trigger name="schedule">
+        <Icon sf={{ default: "calendar", selected: "calendar" }} />
+        <Label>Schedule</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="compete">
+        <Icon sf={{ default: "trophy", selected: "trophy.fill" }} />
+        <Label>Compete</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="explore">
-        <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
+        <Icon sf={{ default: "map", selected: "map.fill" }} />
         <Label>Explore</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="elo">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
-        <Label>My ELO</Label>
+        <Label>Me</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -77,24 +81,36 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Courts",
+          title: "Home",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="list.bullet" tintColor={color} size={22} />
+              <SymbolView name="house" tintColor={color} size={22} />
             ) : (
-              <Feather name="list" size={21} color={color} />
+              <Feather name="home" size={21} color={color} />
             ),
         }}
       />
       <Tabs.Screen
-        name="feed"
+        name="schedule"
         options={{
-          title: "Feed",
+          title: "Schedule",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="flame" tintColor={color} size={22} />
+              <SymbolView name="calendar" tintColor={color} size={22} />
             ) : (
-              <Feather name="activity" size={21} color={color} />
+              <Feather name="calendar" size={21} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="compete"
+        options={{
+          title: "Compete",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="trophy" tintColor={color} size={22} />
+            ) : (
+              <Feather name="award" size={21} color={color} />
             ),
         }}
       />
@@ -104,16 +120,16 @@ function ClassicTabLayout() {
           title: "Explore",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="chart.bar" tintColor={color} size={22} />
+              <SymbolView name="map" tintColor={color} size={22} />
             ) : (
-              <Feather name="bar-chart-2" size={21} color={color} />
+              <Feather name="map" size={21} color={color} />
             ),
         }}
       />
       <Tabs.Screen
         name="elo"
         options={{
-          title: "My ELO",
+          title: "Me",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="person" tintColor={color} size={22} />
@@ -122,6 +138,8 @@ function ClassicTabLayout() {
             ),
         }}
       />
+      {/* Feed is still accessible as a route but hidden from tab bar */}
+      <Tabs.Screen name="feed" options={{ href: null }} />
     </Tabs>
   );
 }

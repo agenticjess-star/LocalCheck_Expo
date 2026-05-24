@@ -1,3 +1,7 @@
+// ─── Types ────────────────────────────────────────────────────────────────────
+// BACKEND NOTE: All types below mirror the REST API response shapes.
+// Endpoints are documented inline where relevant.
+
 export type CourtSport = "BASKETBALL" | "PICKLEBALL" | "TENNIS" | "SOCCER" | "VOLLEYBALL";
 
 export const SPORT_ICONS: Record<CourtSport, string> = {
@@ -26,6 +30,10 @@ export type EloTier = "PLATINUM" | "GOLD" | "SILVER" | "BRONZE" | "UNRANKED";
 
 export type CourtStatus = "pending" | "confirmed" | "community";
 
+export type NetType = "CHAIN" | "NYLON" | "METAL";
+export type RimType = "SINGLE" | "DOUBLE";
+
+// BACKEND NOTE: GET /api/v1/courts/:id
 export interface Court {
   id: string;
   name: string;
@@ -47,8 +55,16 @@ export interface Court {
   localCount: number;
   addedBy?: string;
   verificationPhoto?: string;
+  // Physical court details
+  courtCount?: number;      // number of courts / playing surfaces
+  hoopCount?: number;       // hoops (basketball/pickleball specific)
+  netType?: NetType;        // net material
+  rimType?: RimType;        // rim type (basketball)
+  waterFountain?: boolean;  // water fountain on site
+  addedDate?: string;       // display string e.g. "JAN 2024"
 }
 
+// BACKEND NOTE: GET /api/v1/runs/:id
 export interface GameRun {
   id: string;
   courtId: string;
@@ -65,6 +81,7 @@ export interface GameRun {
   skillLevel: "ALL LEVELS" | "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
 }
 
+// BACKEND NOTE: GET /api/v1/feed  |  GET /api/v1/courts/:id/feed
 export interface FeedItem {
   id: string;
   type: "checkin" | "run_result" | "new_court" | "run_started";
@@ -81,6 +98,7 @@ export interface FeedItem {
   huped?: boolean;
 }
 
+// BACKEND NOTE: GET /api/v1/players/me/matches
 export interface MatchResult {
   id: string;
   date: string;
@@ -91,6 +109,8 @@ export interface MatchResult {
   teamScore: string;
   opposingScore: string;
 }
+
+// ─── Sample Data ──────────────────────────────────────────────────────────────
 
 export const SAMPLE_PLAYERS: Player[] = [
   { id: "p1", name: "Marcus J.", elo: 1652, tier: "SILVER", avatar: "MJ", wins: 42, losses: 18, checkIns: 87, sport: "BASKETBALL", courtId: "c1", memberSince: "2024-01-15" },
@@ -122,6 +142,12 @@ export const SAMPLE_COURTS: Court[] = [
     covered: false,
     status: "community",
     localCount: 24,
+    courtCount: 2,
+    hoopCount: 4,
+    netType: "CHAIN",
+    rimType: "DOUBLE",
+    waterFountain: true,
+    addedDate: "MAR 2023",
   },
   {
     id: "c2",
@@ -141,6 +167,12 @@ export const SAMPLE_COURTS: Court[] = [
     covered: false,
     status: "community",
     localCount: 11,
+    courtCount: 3,
+    hoopCount: 6,
+    netType: "CHAIN",
+    rimType: "SINGLE",
+    waterFountain: false,
+    addedDate: "JUN 2023",
   },
   {
     id: "c3",
@@ -160,6 +192,12 @@ export const SAMPLE_COURTS: Court[] = [
     covered: false,
     status: "confirmed",
     localCount: 4,
+    courtCount: 1,
+    hoopCount: 2,
+    netType: "METAL",
+    rimType: "DOUBLE",
+    waterFountain: false,
+    addedDate: "NOV 2023",
   },
   {
     id: "c4",
@@ -179,6 +217,11 @@ export const SAMPLE_COURTS: Court[] = [
     covered: false,
     status: "confirmed",
     localCount: 3,
+    courtCount: 4,
+    hoopCount: 0,
+    netType: "NYLON",
+    waterFountain: true,
+    addedDate: "JAN 2024",
   },
   {
     id: "c5",
@@ -198,6 +241,12 @@ export const SAMPLE_COURTS: Court[] = [
     covered: false,
     status: "confirmed",
     localCount: 2,
+    courtCount: 1,
+    hoopCount: 2,
+    netType: "CHAIN",
+    rimType: "SINGLE",
+    waterFountain: true,
+    addedDate: "FEB 2024",
   },
   {
     id: "c6",
@@ -217,6 +266,11 @@ export const SAMPLE_COURTS: Court[] = [
     covered: false,
     status: "community",
     localCount: 8,
+    courtCount: 6,
+    hoopCount: 0,
+    netType: "NYLON",
+    waterFountain: true,
+    addedDate: "APR 2024",
   },
 ];
 
@@ -350,6 +404,8 @@ export const SAMPLE_MATCHES: MatchResult[] = [
   { id: "m4", date: "MAR 22", courtName: "RUCKER PARK", sport: "BASKETBALL", result: "WIN", eloDelta: 12, teamScore: "21", opposingScore: "9" },
   { id: "m5", date: "MAR 20", courtName: "MISSION PARK", sport: "BASKETBALL", result: "LOSS", eloDelta: -8, teamScore: "15", opposingScore: "21" },
 ];
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
 
 export function getEloTier(elo: number): EloTier {
   if (elo >= 1900) return "PLATINUM";

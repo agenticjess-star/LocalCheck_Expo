@@ -1,6 +1,6 @@
 import React from "react";
-import { CourtsScreen } from "@/components/CourtsScreen";
+import { HomeScreen } from "@/components/HomeScreen";
 
-export default function HomeScreen() {
-  return <CourtsScreen />;
+export default function HomeTab() {
+  return <HomeScreen />;
 }
