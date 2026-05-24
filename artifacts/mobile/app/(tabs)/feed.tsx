@@ -29,15 +29,23 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 export default function FeedScreen() {
-  const { feed, courts } = useApp();
+  const { feed, courts, localCourtId } = useApp();
   const { top } = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 67 : top;
   const [section, setSection] = useState<Section>("ACTIVITY");
   const [sportFilter, setSportFilter] = useState<CourtSport | "ALL">("ALL");
   const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
 
+  const localCourt = courts.find((c) => c.id === localCourtId);
+
+  // Filter feed to local court activity when in ACTIVITY mode and local court is set
+  const baseFeed =
+    localCourtId && section === "ACTIVITY"
+      ? feed.filter((item) => item.courtId === localCourtId)
+      : feed;
+
   const filteredFeed =
-    sportFilter === "ALL" ? feed : feed.filter((item) => item.sport === sportFilter);
+    sportFilter === "ALL" ? baseFeed : baseFeed.filter((item) => item.sport === sportFilter);
 
   const activeCourts = courts.filter((c) =>
     SAMPLE_PLAYERS.some((p) => p.courtId === c.id)
@@ -61,7 +69,11 @@ export default function FeedScreen() {
         <View style={styles.headerTop}>
           <View>
             <Text style={styles.headerTitle}>FEED</Text>
-            <Text style={styles.headerSub}>LOCAL ACTIVITY</Text>
+            <Text style={styles.headerSub}>
+              {localCourt
+                ? `${localCourt.name.toUpperCase()} ACTIVITY`
+                : "LOCAL ACTIVITY"}
+            </Text>
           </View>
         </View>
 
@@ -101,7 +113,11 @@ export default function FeedScreen() {
           renderItem={({ item }) => <FeedCard item={item} />}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>No activity yet.{"\n"}Go play.</Text>
+              <Text style={styles.emptyText}>
+                {localCourt
+                  ? `No activity at ${localCourt.name} yet.\nGo play.`
+                  : "No activity yet.\nSet a local court to see updates."}
+              </Text>
             </View>
           }
           showsVerticalScrollIndicator={false}

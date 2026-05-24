@@ -1,13 +1,113 @@
+import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Animated,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MatchRow } from "@/components/MatchRow";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Colors } from "@/constants/colors";
-import { getTierColor } from "@/constants/data";
+import { getTierColor, MatchResult } from "@/constants/data";
 import { Typography } from "@/constants/typography";
 import { useApp } from "@/context/AppContext";
+
+function daysSince(dateStr: string): number {
+  const start = new Date(dateStr).getTime();
+  return Math.max(0, Math.floor((Date.now() - start) / 86400000));
+}
+
+function formatJoinDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase();
+}
+
+function MatchDetailModal({
+  match,
+  visible,
+  onClose,
+}: {
+  match: MatchResult | null;
+  visible: boolean;
+  onClose: () => void;
+}) {
+  if (!match) return null;
+  const isWin = match.result === "WIN";
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalOverlay} onPress={onClose}>
+        <View style={styles.modalCard}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>MATCH DETAIL</Text>
+            <Pressable onPress={onClose} hitSlop={12}>
+              <Ionicons name="close" size={22} color={Colors.muted} />
+            </Pressable>
+          </View>
+          <View style={[styles.modalResultBadge, { backgroundColor: isWin ? Colors.winDim : Colors.lossDim }]}>
+            <Text style={[styles.modalResultText, { color: isWin ? Colors.win : Colors.loss }]}>
+              {match.result}
+            </Text>
+          </View>
+
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>Date</Text>
+            <Text style={styles.modalValue}>{match.date}</Text>
+          </View>
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>Court</Text>
+            <Text style={styles.modalValue}>{match.courtName}</Text>
+          </View>
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>Sport</Text>
+            <Text style={styles.modalValue}>{match.sport}</Text>
+          </View>
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>Score</Text>
+            <Text style={styles.modalValue}>
+              {match.teamScore} — {match.opposingScore}
+            </Text>
+          </View>
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>ELO Change</Text>
+            <Text style={[styles.modalValue, { color: isWin ? Colors.win : Colors.loss }]}>
+              {match.eloDelta > 0 ? `+${match.eloDelta}` : match.eloDelta}
+            </Text>
+          </View>
+
+          <View style={styles.modalDivider} />
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>Game Time</Text>
+            <Text style={styles.modalValueMuted}>Not recorded</Text>
+          </View>
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>Weather</Text>
+            <Text style={styles.modalValueMuted}>Not recorded</Text>
+          </View>
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>Opponent</Text>
+            <Text style={styles.modalValueMuted}>Not recorded</Text>
+          </View>
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>Comments</Text>
+            <Text style={styles.modalValueMuted}>No comments</Text>
+          </View>
+
+          <View style={styles.modalPaywallHint}>
+            <Ionicons name="lock-closed" size={12} color={Colors.muted} />
+            <Text style={styles.modalPaywallText}>PREMIUM: FULL MATCH HISTORY</Text>
+          </View>
+        </View>
+      </Pressable>
+    </Modal>
+  );
+}
 
 export default function EloScreen() {
   const { currentUser, matches } = useApp();
@@ -15,6 +115,10 @@ export default function EloScreen() {
   const topPad = Platform.OS === "web" ? 67 : top;
 
   const [displayElo, setDisplayElo] = useState(currentUser.elo - 80);
+  const [scrollY, setScrollY] = useState(0);
+  const [selectedMatch, setSelectedMatch] = useState<MatchResult | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
+
   const barAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -37,6 +141,7 @@ export default function EloScreen() {
   const total = currentUser.wins + currentUser.losses;
   const winRate = total > 0 ? Math.round((currentUser.wins / total) * 100) : 0;
   const isUnranked = total < 5;
+  const memberDays = daysSince(currentUser.memberSince);
 
   const tierRanges: Record<string, [number, number]> = {
     BRONZE: [0, 1499], SILVER: [1500, 1699], GOLD: [1700, 1899], PLATINUM: [1900, 2200],
@@ -45,111 +150,244 @@ export default function EloScreen() {
   const tierPct = Math.min(1, Math.max(0, (currentUser.elo - tierMin) / (tierMax - tierMin)));
   const tierBarWidth = barAnim.interpolate({ inputRange: [0, 1], outputRange: ["0%", `${tierPct * 100}%`] });
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 84 : 100 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={[styles.hero, { paddingTop: topPad + 16 }]}>
-        <View style={styles.heroTop}>
-          <View>
-            <Text style={styles.heroLabel}>ELO RANK</Text>
-            <Text style={styles.heroName}>{currentUser.name.toUpperCase()}</Text>
-          </View>
-          <PlayerAvatar initials={currentUser.avatar} size={52} />
-        </View>
+  const isCollapsed = scrollY > 120;
 
-        {isUnranked ? (
-          <View style={styles.unranked}>
-            <Text style={styles.unrankedNum}>—</Text>
-            <Text style={styles.unrankedText}>UNRANKED</Text>
-            <Text style={styles.unrankedSub}>PLAY {5 - total} MORE GAMES TO RANK</Text>
-          </View>
-        ) : (
-          <>
-            <View style={styles.eloRow}>
-              <Text style={styles.eloNumber}>{displayElo}</Text>
-              <View style={styles.tierPill}>
-                <View style={[styles.tierDot, { backgroundColor: tierColor }]} />
-                <Text style={[styles.tierLabel, { color: tierColor }]}>{currentUser.tier}</Text>
+  return (
+    <View style={styles.container}>
+      {/* Sticky Header */}
+      <View style={[styles.stickyHeader, { paddingTop: topPad + 12, opacity: isCollapsed ? 1 : 0 }]}>
+        <Text style={styles.stickyName}>{currentUser.name.toUpperCase()}</Text>
+        <View style={styles.stickyRight}>
+          <Text style={[styles.stickyElo, { color: tierColor }]}>{currentUser.elo}</Text>
+          <Text style={styles.stickyWins}>W {currentUser.wins} · L {currentUser.losses} · {winRate}%</Text>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 84 : 100 }}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={(e) => setScrollY(e.nativeEvent.contentOffset.y)}
+      >
+        {/* Hero */}
+        <View style={[styles.hero, { paddingTop: topPad + 16 }]}>
+          <View style={styles.heroTop}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.heroName}>{currentUser.name.toUpperCase()}</Text>
+              <View style={styles.memberRow}>
+                <Text style={styles.memberLabel}>MEMBER SINCE</Text>
+                <Text style={styles.memberValue}>{formatJoinDate(currentUser.memberSince)}</Text>
+              </View>
+              <View style={styles.memberRow}>
+                <Text style={styles.memberLabel}>DAYS ACTIVE</Text>
+                <Text style={styles.memberValue}>{memberDays}</Text>
               </View>
             </View>
-            <View style={styles.tierBarTrack}>
-              <Animated.View style={[styles.tierBarFill, { width: tierBarWidth, backgroundColor: tierColor }]} />
+            <View style={{ alignItems: "flex-end", gap: 6 }}>
+              <PlayerAvatar initials={currentUser.avatar} size={44} />
+              <Pressable style={styles.settingsBtn} hitSlop={8}>
+                <Ionicons name="settings-outline" size={18} color={Colors.muted} />
+              </Pressable>
             </View>
-            <View style={styles.tierBarLabels}>
-              <Text style={styles.tierBarMin}>{tierMin}</Text>
-              <Text style={styles.tierBarMax}>{tierMax}</Text>
+          </View>
+
+          {isUnranked ? (
+            <View style={styles.unranked}>
+              <Text style={styles.unrankedNum}>—</Text>
+              <Text style={styles.unrankedText}>UNRANKED</Text>
+              <Text style={styles.unrankedSub}>PLAY {5 - total} MORE GAMES TO RANK</Text>
             </View>
-          </>
-        )}
-      </View>
+          ) : (
+            <>
+              <View style={styles.eloRow}>
+                <Text style={styles.eloNumber}>{displayElo}</Text>
+                <View style={styles.tierPill}>
+                  <View style={[styles.tierDot, { backgroundColor: tierColor }]} />
+                  <Text style={[styles.tierLabel, { color: tierColor }]}>{currentUser.tier}</Text>
+                </View>
+              </View>
+              <View style={styles.tierBarTrack}>
+                <Animated.View style={[styles.tierBarFill, { width: tierBarWidth, backgroundColor: tierColor }]} />
+              </View>
+              <View style={styles.tierBarLabels}>
+                <Text style={styles.tierBarMin}>{tierMin}</Text>
+                <Text style={styles.tierBarMax}>{tierMax}</Text>
+              </View>
+            </>
+          )}
+        </View>
 
-      <View style={styles.statsGrid}>
-        <View style={styles.statCell}>
-          <Text style={[styles.statVal, { color: Colors.win }]}>W {currentUser.wins}</Text>
-          <Text style={styles.statLbl}>WINS</Text>
+        {/* Stats Grid */}
+        <View style={styles.statsGrid}>
+          <View style={styles.statCell}>
+            <Text style={[styles.statVal, { color: Colors.win }]}>W {currentUser.wins}</Text>
+            <Text style={styles.statLbl}>WINS</Text>
+          </View>
+          <View style={[styles.statCell, styles.statCellBorder]}>
+            <Text style={[styles.statVal, { color: Colors.loss }]}>L {currentUser.losses}</Text>
+            <Text style={styles.statLbl}>LOSSES</Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text style={styles.statVal}>{winRate}%</Text>
+            <Text style={styles.statLbl}>WIN RATE</Text>
+          </View>
         </View>
-        <View style={[styles.statCell, styles.statCellBorder]}>
-          <Text style={[styles.statVal, { color: Colors.loss }]}>L {currentUser.losses}</Text>
-          <Text style={styles.statLbl}>LOSSES</Text>
-        </View>
-        <View style={styles.statCell}>
-          <Text style={styles.statVal}>{winRate}%</Text>
-          <Text style={styles.statLbl}>WIN RATE</Text>
-        </View>
-      </View>
 
-      <View style={styles.statsGrid}>
-        <View style={styles.statCell}>
-          <Text style={styles.statVal}>{currentUser.checkIns}</Text>
-          <Text style={styles.statLbl}>CHECK-INS</Text>
+        <View style={styles.statsGrid}>
+          <View style={styles.statCell}>
+            <Text style={styles.statVal}>{currentUser.checkIns}</Text>
+            <Text style={styles.statLbl}>CHECK-INS</Text>
+          </View>
+          <View style={[styles.statCell, styles.statCellBorder]}>
+            <Text style={styles.statVal}>{total}</Text>
+            <Text style={styles.statLbl}>GAMES</Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text style={[styles.statVal, { color: tierColor }]}>{currentUser.tier}</Text>
+            <Text style={styles.statLbl}>TIER</Text>
+          </View>
         </View>
-        <View style={[styles.statCell, styles.statCellBorder]}>
-          <Text style={styles.statVal}>{total}</Text>
-          <Text style={styles.statLbl}>GAMES</Text>
-        </View>
-        <View style={styles.statCell}>
-          <Text style={[styles.statVal, { color: tierColor }]}>{currentUser.tier}</Text>
-          <Text style={styles.statLbl}>TIER</Text>
-        </View>
-      </View>
 
-      <View style={styles.matchSection}>
-        <Text style={styles.matchTitle}>RECENT MATCHES</Text>
-        {matches.length === 0 ? (
-          <Text style={styles.noMatch}>NO MATCHES YET. FIND A RUN.</Text>
-        ) : (
-          matches.slice(0, 10).map((m) => <MatchRow key={m.id} match={m} />)
-        )}
-      </View>
-    </ScrollView>
+        {/* Recent Matches */}
+        <View style={styles.matchSection}>
+          <Text style={styles.matchTitle}>RECENT MATCHES</Text>
+          {matches.length === 0 ? (
+            <Text style={styles.noMatch}>NO MATCHES YET. FIND A RUN.</Text>
+          ) : (
+            <>
+              {matches.slice(0, 10).map((m) => (
+                <Pressable
+                  key={m.id}
+                  onPress={() => {
+                    setSelectedMatch(m);
+                    setShowDetail(true);
+                  }}
+                >
+                  <MatchRow match={m} />
+                </Pressable>
+              ))}
+              {matches.length > 10 && (
+                <View style={styles.paywallOverlay}>
+                  <View style={styles.paywallBlur}>
+                    {matches.slice(10, 13).map((m) => (
+                      <View key={m.id} style={{ opacity: 0.15 }}>
+                        <MatchRow match={m} />
+                      </View>
+                    ))}
+                  </View>
+                  <View style={styles.paywallBadge}>
+                    <Ionicons name="lock-closed" size={14} color={Colors.accent} />
+                    <Text style={styles.paywallTitle}>PREMIUM HISTORY</Text>
+                    <Text style={styles.paywallSub}>Unlock full match archive</Text>
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+      </ScrollView>
+
+      <MatchDetailModal
+        match={selectedMatch}
+        visible={showDetail}
+        onClose={() => setShowDetail(false)}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  scroll: { flex: 1 },
+
+  stickyHeader: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    backgroundColor: "rgba(13,13,16,0.92)",
+    borderBottomWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backdropFilter: "blur(12px)" as any,
+  },
+  stickyName: {
+    fontFamily: Typography.heading,
+    fontSize: 16,
+    color: Colors.white,
+    letterSpacing: 1,
+  },
+  stickyRight: { alignItems: "flex-end" },
+  stickyElo: {
+    fontFamily: Typography.heading,
+    fontSize: 18,
+    letterSpacing: 0.5,
+    lineHeight: 20,
+  },
+  stickyWins: {
+    fontFamily: Typography.bodyMedium,
+    fontSize: 9,
+    color: Colors.muted,
+    letterSpacing: 1,
+    marginTop: 2,
+  },
+
   hero: {
-    paddingHorizontal: 20, paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
     backgroundColor: Colors.black,
-    borderBottomWidth: 0,
   },
   heroTop: {
-    flexDirection: "row", justifyContent: "space-between",
-    alignItems: "flex-start", marginBottom: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
   },
-  heroLabel: {
-    fontFamily: Typography.bodyMedium, fontSize: 10, color: Colors.mutedDark,
-    letterSpacing: 3, textTransform: "uppercase" as const,
+  heroName: {
+    fontFamily: Typography.heading,
+    fontSize: 28,
+    color: Colors.white,
+    letterSpacing: 1,
+    lineHeight: 32,
   },
-  heroName: { fontFamily: Typography.heading, fontSize: 22, color: Colors.white, letterSpacing: 1 },
+  memberRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+  },
+  memberLabel: {
+    fontFamily: Typography.bodyMedium,
+    fontSize: 9,
+    color: Colors.mutedDark,
+    letterSpacing: 2,
+    textTransform: "uppercase" as const,
+  },
+  memberValue: {
+    fontFamily: Typography.bodyBold,
+    fontSize: 11,
+    color: Colors.muted,
+    letterSpacing: 0.5,
+  },
+  settingsBtn: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
   eloRow: { flexDirection: "row", alignItems: "flex-end", gap: 16, marginBottom: 14 },
   eloNumber: {
     fontFamily: Typography.heading,
-    fontSize: Platform.OS === "web" ? 80 : 88,
+    fontSize: Platform.OS === "web" ? 64 : 72,
     color: Colors.white,
-    lineHeight: Platform.OS === "web" ? 82 : 90,
+    lineHeight: Platform.OS === "web" ? 66 : 74,
     letterSpacing: -2,
   },
   tierPill: {
@@ -164,13 +402,15 @@ const styles = StyleSheet.create({
   tierBarLabels: { flexDirection: "row", justifyContent: "space-between" },
   tierBarMin: { fontFamily: Typography.bodyMedium, fontSize: 9, color: Colors.mutedDark, letterSpacing: 1 },
   tierBarMax: { fontFamily: Typography.bodyMedium, fontSize: 9, color: Colors.mutedDark, letterSpacing: 1 },
+
   unranked: { paddingVertical: 20 },
-  unrankedNum: { fontFamily: Typography.heading, fontSize: 96, color: Colors.mutedDark, lineHeight: 88 },
-  unrankedText: { fontFamily: Typography.heading, fontSize: 32, color: Colors.white, letterSpacing: 2 },
+  unrankedNum: { fontFamily: Typography.heading, fontSize: 72, color: Colors.mutedDark, lineHeight: 68 },
+  unrankedText: { fontFamily: Typography.heading, fontSize: 28, color: Colors.white, letterSpacing: 2 },
   unrankedSub: {
     fontFamily: Typography.bodyMedium, fontSize: 11, color: Colors.mutedDark,
     letterSpacing: 2, textTransform: "uppercase" as const, marginTop: 6,
   },
+
   statsGrid: {
     flexDirection: "row",
     borderBottomWidth: 1, borderColor: Colors.border,
@@ -183,6 +423,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.bodyMedium, fontSize: 9, color: Colors.muted,
     letterSpacing: 2, textTransform: "uppercase" as const, marginTop: 3,
   },
+
   matchSection: { paddingHorizontal: 20, paddingTop: 20 },
   matchTitle: {
     fontFamily: Typography.heading, fontSize: 16, color: Colors.text,
@@ -192,5 +433,118 @@ const styles = StyleSheet.create({
   noMatch: {
     fontFamily: Typography.bodyMedium, fontSize: 12, color: Colors.muted,
     letterSpacing: 2, textTransform: "uppercase" as const, paddingVertical: 24,
+  },
+
+  paywallOverlay: { position: "relative", marginTop: 4 },
+  paywallBlur: {
+    overflow: "hidden",
+  },
+  paywallBadge: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(13,13,16,0.55)",
+    gap: 4,
+  },
+  paywallTitle: {
+    fontFamily: Typography.heading,
+    fontSize: 13,
+    color: Colors.accent,
+    letterSpacing: 2,
+  },
+  paywallSub: {
+    fontFamily: Typography.bodyMedium,
+    fontSize: 10,
+    color: Colors.muted,
+    letterSpacing: 1,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 20,
+    gap: 10,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  modalTitle: {
+    fontFamily: Typography.heading,
+    fontSize: 14,
+    color: Colors.text,
+    letterSpacing: 2,
+  },
+  modalResultBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginBottom: 6,
+  },
+  modalResultText: {
+    fontFamily: Typography.heading,
+    fontSize: 14,
+    letterSpacing: 2,
+  },
+  modalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  modalLabel: {
+    fontFamily: Typography.bodyMedium,
+    fontSize: 11,
+    color: Colors.muted,
+    letterSpacing: 1,
+  },
+  modalValue: {
+    fontFamily: Typography.bodyBold,
+    fontSize: 12,
+    color: Colors.text,
+    letterSpacing: 0.3,
+  },
+  modalValueMuted: {
+    fontFamily: Typography.body,
+    fontSize: 12,
+    color: Colors.mutedDark,
+    letterSpacing: 0.3,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: 6,
+  },
+  modalPaywallHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderColor: Colors.border,
+  },
+  modalPaywallText: {
+    fontFamily: Typography.bodyMedium,
+    fontSize: 9,
+    color: Colors.muted,
+    letterSpacing: 2,
+    textTransform: "uppercase" as const,
   },
 });
