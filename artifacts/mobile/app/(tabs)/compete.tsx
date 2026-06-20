@@ -272,6 +272,7 @@ type GameLog = {
   myScore: string;
   theirScore: string;
   opponentName: string;
+  opponentId: string;
   courtId: string;
   note: string;
 };
@@ -285,15 +286,19 @@ function LogGameView({
   courts: ReturnType<typeof useApp>["courts"];
   bottom: number;
 }) {
+  const { isFriend, getFriendsList } = useApp();
   const [form, setForm] = useState<GameLog>({
     sport: "",
     myScore: "",
     theirScore: "",
     opponentName: "",
+    opponentId: "",
     courtId: "",
     note: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [showOpponentPicker, setShowOpponentPicker] = useState(false);
+  const [opponentQuery, setOpponentQuery] = useState("");
 
   const isWin =
     form.myScore !== "" &&
@@ -309,10 +314,35 @@ function LogGameView({
 
   const handleSubmit = () => {
     if (!canSubmit) return;
-    // BACKEND NOTE: POST /api/v1/matches { sport, myScore, theirScore, opponentName, courtId }
+    // BACKEND NOTE: POST /api/v1/matches { sport, myScore, theirScore, opponentName, opponentId, courtId }
     setSubmitted(true);
     setTimeout(() => setSubmitted(false), 3000);
-    setForm({ sport: "", myScore: "", theirScore: "", opponentName: "", courtId: "", note: "" });
+    setForm({ sport: "", myScore: "", theirScore: "", opponentName: "", opponentId: "", courtId: "", note: "" });
+  };
+
+  // Opponent typeahead
+  const friends = getFriendsList();
+  const otherPlayers = SAMPLE_PLAYERS.filter(
+    (p) => p.id !== currentUser.id && !isFriend(p.id)
+  );
+  const query = opponentQuery.toLowerCase().trim();
+  const matchedFriends = query
+    ? friends.filter((p) => p.name.toLowerCase().includes(query))
+    : friends;
+  const matchedOthers = query
+    ? otherPlayers.filter((p) => p.name.toLowerCase().includes(query))
+    : otherPlayers.slice(0, 5);
+  const opponentSuggestions = [...matchedFriends, ...matchedOthers].slice(0, 10);
+
+  const handleSelectOpponent = (player: (typeof SAMPLE_PLAYERS)[0]) => {
+    setForm((f) => ({ ...f, opponentName: player.name, opponentId: player.id }));
+    setOpponentQuery("");
+    setShowOpponentPicker(false);
+  };
+
+  const handleClearOpponent = () => {
+    setForm((f) => ({ ...f, opponentName: "", opponentId: "" }));
+    setOpponentQuery("");
   };
 
   if (submitted) {
@@ -411,14 +441,72 @@ function LogGameView({
 
       {/* Opponent */}
       <View style={styles.fieldGroup}>
-        <Text style={styles.fieldLabel}>OPPONENT NAME (optional)</Text>
-        <TextInput
-          style={styles.textField}
-          value={form.opponentName}
-          onChangeText={(v) => setForm((f) => ({ ...f, opponentName: v }))}
-          placeholder="e.g. Marcus J."
-          placeholderTextColor={Colors.mutedDark}
-        />
+        <Text style={styles.fieldLabel}>OPPONENT</Text>
+        <Pressable
+          style={styles.opponentTrigger}
+          onPress={() => setShowOpponentPicker((s) => !s)}
+        >
+          {form.opponentName ? (
+            <View style={styles.opponentSelected}>
+              <Text style={styles.opponentSelectedText}>{form.opponentName.toUpperCase()}</Text>
+              <Pressable onPress={handleClearOpponent} hitSlop={8}>
+                <Ionicons name="close" size={16} color={Colors.muted} />
+              </Pressable>
+            </View>
+          ) : (
+            <Text style={styles.opponentPlaceholder}>Select or type opponent name</Text>
+          )}
+          <Ionicons
+            name={showOpponentPicker ? "chevron-up" : "chevron-down"}
+            size={16}
+            color={Colors.muted}
+          />
+        </Pressable>
+
+        {showOpponentPicker && (
+          <View style={styles.opponentDropdown}>
+            <View style={styles.opponentSearch}>
+              <Ionicons name="search" size={14} color={Colors.muted} />
+              <TextInput
+                style={styles.opponentSearchInput}
+                value={opponentQuery}
+                onChangeText={setOpponentQuery}
+                placeholder="Type to search..."
+                placeholderTextColor={Colors.mutedDark}
+                autoFocus
+                autoCapitalize="none"
+              />
+            </View>
+
+            {friends.length > 0 && !query && (
+              <Text style={styles.opponentSection}>YOUR FRIENDS</Text>
+            )}
+            {opponentSuggestions.map((p) => (
+              <Pressable
+                key={p.id}
+                style={styles.opponentOption}
+                onPress={() => handleSelectOpponent(p)}
+              >
+                <PlayerAvatar initials={p.avatar} size={28} />
+                <View style={styles.opponentOptionInfo}>
+                  <Text style={styles.opponentOptionName}>{p.name.toUpperCase()}</Text>
+                  <Text style={styles.opponentOptionMeta}>
+                    {p.tier} · {p.elo} ELO
+                  </Text>
+                </View>
+                {isFriend(p.id) && (
+                  <View style={styles.opponentFriendBadge}>
+                    <Text style={styles.opponentFriendBadgeText}>FRIEND</Text>
+                  </View>
+                )}
+              </Pressable>
+            ))}
+
+            {opponentSuggestions.length === 0 && query.length > 0 && (
+              <Text style={styles.opponentEmpty}>No players found</Text>
+            )}
+          </View>
+        )}
       </View>
 
       {/* Court */}
@@ -856,5 +944,110 @@ const styles = StyleSheet.create({
     fontFamily: Typography.body,
     fontSize: 13,
     color: Colors.muted,
+  },
+
+  // Opponent selector
+  opponentTrigger: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xs,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 44,
+  },
+  opponentSelected: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  opponentSelectedText: {
+    fontFamily: Typography.heading,
+    fontSize: 14,
+    color: Colors.text,
+    letterSpacing: 0.5,
+  },
+  opponentPlaceholder: {
+    fontFamily: Typography.body,
+    fontSize: 14,
+    color: Colors.mutedDark,
+  },
+  opponentDropdown: {
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    marginTop: 6,
+    maxHeight: 280,
+    overflow: "hidden",
+  },
+  opponentSearch: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
+  },
+  opponentSearchInput: {
+    flex: 1,
+    fontFamily: Typography.bodyMedium,
+    fontSize: 13,
+    color: Colors.text,
+    paddingVertical: 2,
+  },
+  opponentSection: {
+    fontFamily: Typography.bodyBold,
+    fontSize: 9,
+    color: Colors.muted,
+    letterSpacing: 1.5,
+    textTransform: "uppercase" as const,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  opponentOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
+  },
+  opponentOptionInfo: { flex: 1 },
+  opponentOptionName: {
+    fontFamily: Typography.bodyBold,
+    fontSize: 13,
+    color: Colors.text,
+    letterSpacing: 0.3,
+  },
+  opponentOptionMeta: {
+    fontFamily: Typography.bodyMedium,
+    fontSize: 10,
+    color: Colors.muted,
+    marginTop: 1,
+  },
+  opponentFriendBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 0.5,
+    borderColor: Colors.win,
+  },
+  opponentFriendBadgeText: {
+    fontFamily: Typography.bodyBold,
+    fontSize: 8,
+    color: Colors.win,
+    letterSpacing: 1,
+  },
+  opponentEmpty: {
+    fontFamily: Typography.bodyMedium,
+    fontSize: 12,
+    color: Colors.muted,
+    textAlign: "center",
+    paddingVertical: 20,
   },
 });

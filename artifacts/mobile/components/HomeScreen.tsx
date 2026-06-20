@@ -24,7 +24,7 @@ import { useApp } from "@/context/AppContext";
 const WEATHER_STUB = "72° ☀";
 
 export function HomeScreen() {
-  const { courts, localCourtId, checkedInCourtId, checkIn, checkOut, feed } = useApp();
+  const { courts, localCourtId, checkedInCourtId, checkIn, checkOut, feed, isFriend } = useApp();
   const { top, bottom } = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 67 : top;
 
@@ -36,7 +36,16 @@ export function HomeScreen() {
   }
 
   const sportColor = getSportColor(localCourt.sport);
-  const activePlayers = SAMPLE_PLAYERS.filter((p) => p.courtId === localCourt.id).slice(0, 8);
+  // Sort active players: friends first, then by ELO
+  const rawPlayers = SAMPLE_PLAYERS.filter((p) => p.courtId === localCourt.id);
+  const activePlayers = rawPlayers
+    .sort((a, b) => {
+      const aFriend = isFriend(a.id) ? 1 : 0;
+      const bFriend = isFriend(b.id) ? 1 : 0;
+      if (aFriend !== bFriend) return bFriend - aFriend;
+      return b.elo - a.elo;
+    })
+    .slice(0, 8);
   const overflowCount = Math.max(0, localCourt.activeCount - activePlayers.length);
   const courtRuns = SAMPLE_RUNS.filter((r) => r.courtId === localCourt.id);
   const courtFeed = feed.filter((f) => f.courtId === localCourt.id).slice(0, 5);
@@ -182,13 +191,30 @@ export function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.rosterRow}
             >
-              {activePlayers.map((p) => (
-                <View key={p.id} style={styles.rosterItem}>
-                  <PlayerAvatar initials={p.avatar} size={40} />
-                  <Text style={styles.rosterName}>{p.avatar}</Text>
-                  <Text style={styles.rosterElo}>{p.elo}</Text>
-                </View>
-              ))}
+              {activePlayers.map((p) => {
+                const isFriendStatus = isFriend(p.id);
+                return (
+                  <Pressable
+                    key={p.id}
+                    style={styles.rosterItem}
+                    onPress={() => router.push(`/player/${p.id}`)}
+                  >
+                    <View>
+                      <PlayerAvatar initials={p.avatar} size={40} />
+                      {isFriendStatus && (
+                        <View style={styles.friendDot} />
+                      )}
+                    </View>
+                    <Text style={[styles.rosterName, isFriendStatus && styles.rosterNameFriend]}>
+                      {p.avatar}
+                    </Text>
+                    <Text style={styles.rosterElo}>{p.elo}</Text>
+                    {isFriendStatus && (
+                      <Text style={styles.friendLabel}>FRIEND</Text>
+                    )}
+                  </Pressable>
+                );
+              })}
               {overflowCount > 0 && (
                 <View style={styles.rosterItem}>
                   <View style={styles.rosterMore}>
@@ -543,11 +569,32 @@ const styles = StyleSheet.create({
     marginTop: 5,
     letterSpacing: 0.5,
   },
+  rosterNameFriend: {
+    color: Colors.win,
+  },
   rosterElo: {
     fontFamily: Typography.heading,
     fontSize: 11,
     color: Colors.muted,
     marginTop: 1,
+  },
+  friendDot: {
+    position: "absolute" as any,
+    bottom: -1,
+    right: -1,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.win,
+    borderWidth: 1.5,
+    borderColor: Colors.background,
+  },
+  friendLabel: {
+    fontFamily: Typography.bodyBold,
+    fontSize: 7,
+    color: Colors.win,
+    letterSpacing: 1,
+    marginTop: 2,
   },
   rosterMore: {
     width: 40,

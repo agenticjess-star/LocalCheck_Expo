@@ -36,6 +36,7 @@ interface AppContextValue {
   matches: MatchResult[];
   isLocalPlus: boolean;
   visibility: Visibility;
+  friendIds: string[];
   checkIn: (courtId: string) => Promise<void>;
   checkOut: () => Promise<void>;
   visitCourt: (courtId: string) => Promise<void>;
@@ -49,6 +50,10 @@ interface AppContextValue {
   setLocalCourt: (courtId: string) => Promise<void>;
   setVisibility: (v: Visibility) => Promise<void>;
   setIsLocalPlus: (v: boolean) => Promise<void>;
+  addFriend: (playerId: string) => Promise<void>;
+  removeFriend: (playerId: string) => Promise<void>;
+  isFriend: (playerId: string) => boolean;
+  getFriendsList: () => Player[];
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -63,6 +68,7 @@ const STORAGE_KEYS = {
   courts: "localcheck:courts",
   visibility: "localcheck:visibility",
   isLocalPlus: "localcheck:isLocalPlus",
+  friendIds: "localcheck:friendIds",
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -76,11 +82,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [matches, setMatches] = useState<MatchResult[]>(SAMPLE_MATCHES);
   const [isLocalPlus, setIsLocalPlusState] = useState<boolean>(false);
   const [visibility, setVisibilityState] = useState<Visibility>("public");
+  const [friendIds, setFriendIds] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
       try {
-        const [userRaw, courtIdRaw, lastVisitedRaw, feedRaw, matchesRaw, localCourtRaw, courtsRaw, visibilityRaw, isLocalPlusRaw] = await Promise.all([
+        const [userRaw, courtIdRaw, lastVisitedRaw, feedRaw, matchesRaw, localCourtRaw, courtsRaw, visibilityRaw, isLocalPlusRaw, friendIdsRaw] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.currentUser),
           AsyncStorage.getItem(STORAGE_KEYS.checkedInCourtId),
           AsyncStorage.getItem(STORAGE_KEYS.lastVisitedCourtId),
@@ -90,8 +97,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(STORAGE_KEYS.courts),
           AsyncStorage.getItem(STORAGE_KEYS.visibility),
           AsyncStorage.getItem(STORAGE_KEYS.isLocalPlus),
+          AsyncStorage.getItem(STORAGE_KEYS.friendIds),
         ]);
-        if (userRaw) setCurrentUser(JSON.parse(userRaw));
+        if (userRaw) {
+          const parsed = JSON.parse(userRaw);
+          setCurrentUser(parsed);
+        }
         if (courtIdRaw) setCheckedInCourtId(courtIdRaw);
         if (lastVisitedRaw) setLastVisitedCourtId(lastVisitedRaw);
         if (feedRaw) setFeed(JSON.parse(feedRaw));
@@ -107,6 +118,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         if (visibilityRaw) setVisibilityState(visibilityRaw as Visibility);
         if (isLocalPlusRaw === "true") setIsLocalPlusState(true);
+        if (friendIdsRaw) {
+          const parsed = JSON.parse(friendIdsRaw);
+          setFriendIds(Array.isArray(parsed) ? parsed : []);
+        } else {
+          // Default friends from sample data (Marcus J.)
+          const defaultFriends = SAMPLE_PLAYERS[0].friendIds ?? [];
+          setFriendIds(defaultFriends);
+        }
       } catch {}
     })();
   }, []);
@@ -245,6 +264,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(STORAGE_KEYS.isLocalPlus, String(v));
   }, []);
 
+  const addFriend = useCallback(async (playerId: string) => {
+    setFriendIds((prev) => {
+      if (prev.includes(playerId)) return prev;
+      const updated = [...prev, playerId];
+      AsyncStorage.setItem(STORAGE_KEYS.friendIds, JSON.stringify(updated));
+      return updated;
+    });
+    // Also update currentUser's friendIds
+    setCurrentUser((prev) => {
+      const updated = { ...prev, friendIds: [...(prev.friendIds ?? []), playerId] };
+      AsyncStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const removeFriend = useCallback(async (playerId: string) => {
+    setFriendIds((prev) => {
+      const updated = prev.filter((id) => id !== playerId);
+      AsyncStorage.setItem(STORAGE_KEYS.friendIds, JSON.stringify(updated));
+      return updated;
+    });
+    setCurrentUser((prev) => {
+      const updated = { ...prev, friendIds: (prev.friendIds ?? []).filter((id) => id !== playerId) };
+      AsyncStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const isFriend = useCallback((playerId: string) => {
+    return friendIds.includes(playerId);
+  }, [friendIds]);
+
+  const getFriendsList = useCallback(() => {
+    return SAMPLE_PLAYERS.filter((p) => friendIds.includes(p.id));
+  }, [friendIds]);
+
   const joinRun = useCallback(
     (runId: string, team: "A" | "B") => {
       setRuns((prev) =>
@@ -363,6 +418,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         matches,
         isLocalPlus,
         visibility,
+        friendIds,
         checkIn,
         checkOut,
         visitCourt,
@@ -376,6 +432,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLocalCourt,
         setVisibility,
         setIsLocalPlus,
+        addFriend,
+        removeFriend,
+        isFriend,
+        getFriendsList,
       }}
     >
       {children}

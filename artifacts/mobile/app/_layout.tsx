@@ -30,6 +30,9 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="court/[id]" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="run/[id]" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="player/[id]" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="friends" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="settings" options={{ headerShown: false, presentation: "card" }} />
     </Stack>
   );
 }

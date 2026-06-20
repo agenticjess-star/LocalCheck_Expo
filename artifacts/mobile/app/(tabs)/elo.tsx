@@ -188,9 +188,14 @@ export default function EloScreen() {
             </View>
             <View style={{ alignItems: "flex-end", gap: 6 }}>
               <PlayerAvatar initials={currentUser.avatar} size={44} />
-              <Pressable style={styles.settingsBtn} hitSlop={8} onPress={() => router.push("/settings")}>
-                <Ionicons name="settings-outline" size={18} color={Colors.muted} />
-              </Pressable>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Pressable style={styles.iconBtn} hitSlop={8} onPress={() => router.push("/friends")}>
+                  <Ionicons name="people-outline" size={18} color={Colors.muted} />
+                </Pressable>
+                <Pressable style={styles.iconBtn} hitSlop={8} onPress={() => router.push("/settings")}>
+                  <Ionicons name="settings-outline" size={18} color={Colors.muted} />
+                </Pressable>
+              </View>
             </View>
           </View>
 
@@ -377,7 +382,7 @@ const styles = StyleSheet.create({
     color: Colors.muted,
     letterSpacing: 0.5,
   },
-  settingsBtn: {
+  iconBtn: {
     width: 32,
     height: 32,
     alignItems: "center",
