@@ -12,18 +12,27 @@ interface MatchRowProps {
 export function MatchRow({ match }: MatchRowProps) {
   const isWin = match.result === "WIN";
   const deltaStr = match.eloDelta > 0 ? `+${match.eloDelta}` : `${match.eloDelta}`;
+  const gameLabel = match.gameType ?? match.sport ?? "—";
 
   return (
     <View style={styles.container}>
       <View style={[styles.resultBar, { backgroundColor: isWin ? Colors.win : Colors.loss }]} />
-      <Text style={styles.date}>{match.date}</Text>
-      <View style={styles.center}>
-        <Text style={[styles.result, { color: isWin ? Colors.win : Colors.loss }]}>{match.result}</Text>
-        <Text style={styles.score}>{match.teamScore} — {match.opposingScore}</Text>
-        <Text style={styles.court}>{match.courtName} · {match.sport}</Text>
+
+      <View style={styles.scoreBlock}>
+        <Text style={[styles.score, { color: isWin ? Colors.win : Colors.loss }]}>
+          {match.teamScore}—{match.opposingScore}
+        </Text>
+        <Text style={styles.date}>{match.date}</Text>
       </View>
+
+      <View style={styles.center}>
+        <Text style={styles.gameType}>{gameLabel}</Text>
+        <Text style={styles.court} numberOfLines={1}>{match.courtName}</Text>
+      </View>
+
       <View style={[styles.deltaBlock, { backgroundColor: isWin ? Colors.winDim : Colors.lossDim }]}>
         <Text style={[styles.delta, { color: isWin ? Colors.win : Colors.loss }]}>{deltaStr}</Text>
+        <Text style={styles.eloLabel}>ELO</Text>
       </View>
     </View>
   );
@@ -31,20 +40,72 @@ export function MatchRow({ match }: MatchRowProps) {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: "row", alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1, borderColor: Colors.border,
-    gap: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderColor: Colors.border,
+    gap: 10,
   },
-  resultBar: { width: 3, height: 40, borderRadius: 1 },
+  resultBar: {
+    width: 3,
+    height: 44,
+    borderRadius: 1,
+  },
+  scoreBlock: {
+    alignItems: "center",
+    minWidth: 52,
+  },
+  score: {
+    fontFamily: Typography.heading,
+    fontSize: 18,
+    letterSpacing: 0.5,
+    lineHeight: 20,
+    fontVariant: ["tabular-nums"] as any,
+  },
   date: {
-    fontFamily: Typography.bodyBold, fontSize: 10, color: Colors.muted,
-    letterSpacing: 1, width: 50, textTransform: "uppercase" as const,
+    fontFamily: Typography.bodyMedium,
+    fontSize: 8,
+    color: Colors.mutedDark,
+    letterSpacing: 1,
+    textTransform: "uppercase" as const,
+    marginTop: 2,
   },
-  center: { flex: 1 },
-  result: { fontFamily: Typography.heading, fontSize: 16, letterSpacing: 2, lineHeight: 18 },
-  score: { fontFamily: Typography.bodyBold, fontSize: 11, color: Colors.text, marginTop: 1 },
-  court: { fontFamily: Typography.body, fontSize: 10, color: Colors.muted, marginTop: 1 },
-  deltaBlock: { paddingHorizontal: 10, paddingVertical: 6, minWidth: 52, alignItems: "center" },
-  delta: { fontFamily: Typography.heading, fontSize: 18, letterSpacing: 1 },
+  center: {
+    flex: 1,
+    gap: 2,
+  },
+  gameType: {
+    fontFamily: Typography.heading,
+    fontSize: 14,
+    color: Colors.text,
+    letterSpacing: 0.5,
+    lineHeight: 16,
+  },
+  court: {
+    fontFamily: Typography.body,
+    fontSize: 10,
+    color: Colors.muted,
+    letterSpacing: 0.2,
+  },
+  deltaBlock: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minWidth: 48,
+    alignItems: "center",
+  },
+  delta: {
+    fontFamily: Typography.heading,
+    fontSize: 16,
+    letterSpacing: 0.5,
+    lineHeight: 18,
+  },
+  eloLabel: {
+    fontFamily: Typography.bodyMedium,
+    fontSize: 7,
+    color: Colors.mutedDark,
+    letterSpacing: 1.5,
+    textTransform: "uppercase" as const,
+    marginTop: 1,
+  },
 });
