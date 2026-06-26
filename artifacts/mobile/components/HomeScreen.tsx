@@ -278,27 +278,6 @@ export function HomeScreen() {
           </View>
         )}
 
-        {/* ── Court Details ── */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>COURT DETAILS</Text>
-          </View>
-          <View style={styles.detailsGrid}>
-            {courtDetails.map(({ label, value }, i) => (
-              <View
-                key={label}
-                style={[
-                  styles.detailCell,
-                  i % 2 === 1 && styles.detailCellRight,
-                  i >= courtDetails.length - 2 && styles.detailCellLast,
-                ]}
-              >
-                <Text style={styles.detailValue}>{value}</Text>
-                <Text style={styles.detailLabel}>{label}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
 
         {/* ── Upcoming Run ── */}
         {courtRuns.length > 0 && (
