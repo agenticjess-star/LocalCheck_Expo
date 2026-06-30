@@ -1,16 +1,21 @@
 # LocalCheck Backend Status
 
+> ⚠️ **Superseded.** This Stage-1 doc described intended behavior; several schema
+> claims below were inaccurate against the **live** Supabase DB and were corrected
+> in Stage 2. The verified source of truth is now
+> [`PROJECT_STATE.md`](./PROJECT_STATE.md). Sections corrected inline below.
+
 ## Auth
 - **Email/Password Sign-Up**: ✅ Implemented via `supabase.auth.signUp`
 - **Email/Password Sign-In**: ✅ Implemented via `supabase.auth.signInWithPassword`
-- **Apple Sign-In**: ✅ Implemented (iOS only) via `expo-apple-authentication` + Supabase `signInWithIdToken`
+- **Apple Sign-In**: ✅ Implemented (iOS only) — ⚠️ **does not run in Expo Go**; needs a development build.
 - **Persisted session**: ✅ Uses `expo-secure-store` adapter — survives app restarts
-- **Profile creation**: ✅ `ensureProfile()` auto-creates a row in `profiles` table on first sign-in/sign-up
+- **Profile creation**: ⚠️ Was broken (inserted `elo`/`tier`/`check_ins`, omitted required `username`). **Fixed in Stage 2** — now inserts `username` + `elo_rating`.
 
 ## Courts Backend
-- **Primary source**: `courts_with_stats` view (if it exists in Supabase)
-- **Fallback**: `courts` table
-- **Row limit**: 5000 rows
+- **Primary source**: `courts_with_stats` view (a security-definer view — readable anonymously, so the map works logged-out)
+- **Fallback**: `courts` table (RLS-restricted to authenticated users)
+- **Row limit**: 6000 rows (live table holds ~5,734)
 - **Local fallback**: Sample courts from `constants/data.ts` are used if Supabase is unavailable or returns 0 rows
 - **App never goes blank**: ✅ Fallback guaranteed
 
@@ -21,18 +26,25 @@
 
 ## Supabase Tables Required
 
-### `profiles`
+### `profiles` (ACTUAL live schema — the block below is corrected)
 ```sql
+-- Real columns: id, email, display_name, username (NOT NULL UNIQUE,
+-- ^[A-Za-z0-9_]{3,32}$), avatar_url, elo_rating (default 1200), wins, losses,
+-- total_court_time_minutes, local_court_id, created_at, updated_at.
+-- NOTE: there is NO `elo`, `tier`, or `check_ins` column. See profiles in
+-- attached_assets/localcheck-supabase-schema.ts for the canonical definition.
 create table profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  display_name text,
+  id uuid primary key references auth.users(id),
+  email citext,
+  display_name text not null,
+  username citext not null unique,
   avatar_url text,
-  elo integer default 1200,
-  wins integer default 0,
-  losses integer default 0,
-  check_ins integer default 0,
-  tier text default 'BRONZE',
-  created_at timestamptz default now()
+  elo_rating integer not null default 1200,
+  wins integer not null default 0,
+  losses integer not null default 0,
+  total_court_time_minutes integer not null default 0,
+  local_court_id uuid references courts(id),
+  created_at timestamptz not null default now()
 );
 -- RLS
 alter table profiles enable row level security;
@@ -44,13 +56,15 @@ create policy "Users can update their own profile"
   on profiles for update using (auth.uid() = id);
 ```
 
-### `courts` (already seeded with 5000 rows)
+### `courts` (ACTUAL live schema — ~5,734 rows)
 ```sql
--- Key columns expected by courtService.ts:
--- id, name, sport, neighborhood, city, address, latitude, longitude,
--- active_count, max_capacity, rating, rating_count, surface, lights, covered,
--- image_uri, status, local_count, added_by, court_count, hoop_count,
--- net_type, rim_type, water_fountain, added_date
+-- Real columns read by courtService.ts:
+-- id (uuid), name, address, latitude, longitude, sport_type (enum),
+-- added_by (uuid NOT NULL), image_url, verification_threshold, is_archived,
+-- location (city), state, created_at, updated_at.
+-- The earlier list (sport, neighborhood, city, active_count, rating, surface,
+-- status, local_count, ...) did NOT match the DB and was the cause of the
+-- map showing mismapped/sample data. Fixed in Stage 2.
 ```
 
 ### `courts_with_stats` (optional enriched view)
