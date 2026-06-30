@@ -157,7 +157,10 @@ export default function EloScreen() {
   return (
     <View style={styles.container}>
       {/* Sticky Header */}
-      <View style={[styles.stickyHeader, { paddingTop: topPad + 12, opacity: isCollapsed ? 1 : 0 }]}>
+      <View
+        pointerEvents={isCollapsed ? "auto" : "none"}
+        style={[styles.stickyHeader, { paddingTop: topPad + 12, opacity: isCollapsed ? 1 : 0 }]}
+      >
         <Text style={styles.stickyName}>{currentUser.name.toUpperCase()}</Text>
         <View style={styles.stickyRight}>
           <Text style={[styles.stickyElo, { color: tierColor }]}>{currentUser.elo}</Text>

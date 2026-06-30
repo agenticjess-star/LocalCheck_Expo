@@ -101,12 +101,24 @@ export interface FeedItem {
   huped?: boolean;
 }
 
+export type GameType = "1v1" | "2v2" | "3v3" | "4v4" | "5v5" | "TwentyOne";
+
+export const GAME_TYPE_LABELS: Record<GameType, string> = {
+  "1v1": "1v1",
+  "2v2": "2v2",
+  "3v3": "3v3",
+  "4v4": "4v4",
+  "5v5": "5v5",
+  TwentyOne: "TwentyOne",
+};
+
 // BACKEND NOTE: GET /api/v1/players/me/matches
 export interface MatchResult {
   id: string;
   date: string;
   courtName: string;
   sport: CourtSport;
+  gameType?: GameType;
   result: "WIN" | "LOSS";
   eloDelta: number;
   teamScore: string;
@@ -401,11 +413,11 @@ export const SAMPLE_FEED: FeedItem[] = [
 ];
 
 export const SAMPLE_MATCHES: MatchResult[] = [
-  { id: "m1", date: "MAR 28", courtName: "RUCKER PARK", sport: "BASKETBALL", result: "WIN", eloDelta: 15, teamScore: "21", opposingScore: "14" },
-  { id: "m2", date: "MAR 26", courtName: "THE CAGE", sport: "BASKETBALL", result: "LOSS", eloDelta: -12, teamScore: "11", opposingScore: "21" },
-  { id: "m3", date: "MAR 24", courtName: "EASTSIDE PB", sport: "PICKLEBALL", result: "WIN", eloDelta: 18, teamScore: "11", opposingScore: "7" },
-  { id: "m4", date: "MAR 22", courtName: "RUCKER PARK", sport: "BASKETBALL", result: "WIN", eloDelta: 12, teamScore: "21", opposingScore: "9" },
-  { id: "m5", date: "MAR 20", courtName: "MISSION PARK", sport: "BASKETBALL", result: "LOSS", eloDelta: -8, teamScore: "15", opposingScore: "21" },
+  { id: "m1", date: "MAR 28", courtName: "RUCKER PARK", sport: "BASKETBALL", gameType: "5v5", result: "WIN", eloDelta: 15, teamScore: "21", opposingScore: "14" },
+  { id: "m2", date: "MAR 26", courtName: "THE CAGE", sport: "BASKETBALL", gameType: "TwentyOne", result: "LOSS", eloDelta: -12, teamScore: "11", opposingScore: "21" },
+  { id: "m3", date: "MAR 24", courtName: "EASTSIDE PB", sport: "PICKLEBALL", gameType: "2v2", result: "WIN", eloDelta: 18, teamScore: "11", opposingScore: "7" },
+  { id: "m4", date: "MAR 22", courtName: "RUCKER PARK", sport: "BASKETBALL", gameType: "3v3", result: "WIN", eloDelta: 12, teamScore: "21", opposingScore: "9" },
+  { id: "m5", date: "MAR 20", courtName: "MISSION PARK", sport: "BASKETBALL", gameType: "1v1", result: "LOSS", eloDelta: -8, teamScore: "15", opposingScore: "21" },
 ];
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
