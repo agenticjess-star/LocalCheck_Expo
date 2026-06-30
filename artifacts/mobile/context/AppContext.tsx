@@ -22,6 +22,7 @@ import {
   SAMPLE_RUNS,
   getEloTier,
 } from "@/constants/data";
+import { fetchCourtsFromSupabase } from "@/services/courtService";
 
 export type Visibility = "public" | "friends" | "private";
 
@@ -118,14 +119,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (feedRaw) setFeed(JSON.parse(feedRaw));
         if (matchesRaw) setMatches(JSON.parse(matchesRaw));
         if (localCourtRaw) setLocalCourtId(localCourtRaw);
+
+        // Try loading courts from Supabase; merge user-added courts on top
+        const remoteCourts = await fetchCourtsFromSupabase();
+        const baseCourts = remoteCourts ?? SAMPLE_COURTS;
         if (courtsRaw) {
           const saved: Court[] = JSON.parse(courtsRaw);
-          const sampleIds = new Set(SAMPLE_COURTS.map((c) => c.id));
-          const userAdded = saved.filter((c) => !sampleIds.has(c.id));
-          if (userAdded.length > 0) {
-            setCourts([...SAMPLE_COURTS, ...userAdded]);
-          }
+          const baseIds = new Set(baseCourts.map((c) => c.id));
+          const userAdded = saved.filter((c) => !baseIds.has(c.id));
+          setCourts(userAdded.length > 0 ? [...baseCourts, ...userAdded] : baseCourts);
+        } else {
+          setCourts(baseCourts);
         }
+
         if (visibilityRaw) setVisibilityState(visibilityRaw as Visibility);
         if (isLocalPlusRaw === "true") setIsLocalPlusState(true);
         if (friendIdsRaw) {

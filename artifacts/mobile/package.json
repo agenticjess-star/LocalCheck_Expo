@@ -57,7 +57,12 @@
   },
   "dependencies": {
     "@expo-google-fonts/oswald": "^0.4.2",
+    "@supabase/supabase-js": "^2.108.2",
+    "expo-apple-authentication": "^8.0.8",
+    "expo-crypto": "^15.0.9",
+    "expo-secure-store": "^15.0.8",
     "mapbox-gl": "^3.20.0",
-    "react-native-maps": "1.18.0"
+    "react-native-maps": "1.18.0",
+    "react-native-url-polyfill": "^3.0.0"
   }
 }
