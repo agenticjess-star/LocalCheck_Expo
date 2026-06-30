@@ -13,16 +13,32 @@ import { supabase } from "@/lib/supabase";
 
 import type { Session, User } from "@supabase/supabase-js";
 
+// Mirrors the live `public.profiles` columns (see docs/PROJECT_STATE.md).
 export interface UserProfile {
   id: string;
-  display_name: string | null;
+  email: string | null;
+  display_name: string;
+  username: string;
   avatar_url: string | null;
-  elo: number;
+  elo_rating: number;
   wins: number;
   losses: number;
-  check_ins: number;
-  tier: string;
+  total_court_time_minutes: number;
+  local_court_id: string | null;
   created_at: string;
+}
+
+// Usernames must match: ^[A-Za-z0-9_]{3,32}$
+function generateUsername(seed: string, userId: string, attempt = 0): string {
+  const base =
+    seed
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, "")
+      .slice(0, 18) || "player";
+  const idSuffix = userId.replace(/-/g, "").slice(0, 6);
+  const rand = attempt > 0 ? Math.random().toString(36).slice(2, 6) : "";
+  const candidate = `${base}_${idSuffix}${rand}`.slice(0, 32);
+  return candidate.length >= 3 ? candidate : `player_${idSuffix}`;
 }
 
 interface AuthContextValue {
@@ -76,16 +92,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         currentUser.user_metadata?.full_name ??
         currentUser.email?.split("@")[0] ??
         "Player";
+      const seed =
+        currentUser.email?.split("@")[0] ?? displayName ?? "player";
 
-      await supabase.from("profiles").insert({
-        id: currentUser.id,
-        display_name: displayName,
-        elo: 1200,
-        wins: 0,
-        losses: 0,
-        check_ins: 0,
-        tier: "BRONZE",
-      });
+      // Insert with a generated username; retry on a unique-username clash.
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const { error } = await supabase.from("profiles").insert({
+          id: currentUser.id,
+          email: currentUser.email ?? null,
+          display_name: displayName,
+          username: generateUsername(seed, currentUser.id, attempt),
+          elo_rating: 1200,
+        });
+        if (!error) break;
+        // 23505 = unique_violation (username already taken)
+        if (error.code !== "23505") {
+          if (__DEV__) {
+            console.warn("[auth] profile insert failed:", error.message);
+          }
+          break;
+        }
+      }
     }
 
     await fetchProfile(currentUser.id);
