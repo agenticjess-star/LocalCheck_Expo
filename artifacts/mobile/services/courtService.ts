@@ -3,7 +3,34 @@ import { supabase } from "@/lib/supabase";
 
 // Max courts to pull on initial load. The live table holds ~5.7k courts; this
 // cap keeps the first paint bounded. Location-scoped fetching is a roadmap item.
-const COURT_FETCH_LIMIT = 6000;
+const COURT_FETCH_LIMIT = 8000;
+
+// PostgREST caps every response at `max-rows` (1000 on Supabase) regardless of
+// the `.limit()` we ask for, so a single request silently returns only the
+// first 1000 courts — which dropped the pickleball courts entirely. We page
+// through with `.range()` (ordered by id for a stable window) until we've read
+// everything or hit COURT_FETCH_LIMIT.
+const PAGE_SIZE = 1000;
+
+async function fetchAllPages(
+  table: "courts_with_stats" | "courts",
+): Promise<{ data: SupabaseCourtRow[] | null; error: unknown }> {
+  const all: SupabaseCourtRow[] = [];
+  for (let from = 0; from < COURT_FETCH_LIMIT; from += PAGE_SIZE) {
+    const to = Math.min(from + PAGE_SIZE, COURT_FETCH_LIMIT) - 1;
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .eq("is_archived", false)
+      .order("id", { ascending: true })
+      .range(from, to);
+    if (error) return { data: null, error };
+    if (!data || data.length === 0) break;
+    all.push(...(data as SupabaseCourtRow[]));
+    if (data.length < PAGE_SIZE) break; // last page
+  }
+  return { data: all, error: null };
+}
 
 /**
  * Row shape returned by the `courts_with_stats` view (and the base `courts`
@@ -110,23 +137,15 @@ function mapRow(row: SupabaseCourtRow): Court {
  */
 export async function fetchCourtsFromSupabase(): Promise<Court[] | null> {
   try {
-    let { data, error } = await supabase
-      .from("courts_with_stats")
-      .select("*")
-      .eq("is_archived", false)
-      .limit(COURT_FETCH_LIMIT);
+    let { data, error } = await fetchAllPages("courts_with_stats");
 
     if (error || !data || data.length === 0) {
-      const fallback = await supabase
-        .from("courts")
-        .select("*")
-        .eq("is_archived", false)
-        .limit(COURT_FETCH_LIMIT);
+      const fallback = await fetchAllPages("courts");
       if (fallback.error || !fallback.data || fallback.data.length === 0) {
         if (__DEV__ && (error || fallback.error)) {
           console.warn(
             "[courtService] Supabase court fetch failed:",
-            error?.message ?? fallback.error?.message,
+            error ?? fallback.error,
           );
         }
         return null;
