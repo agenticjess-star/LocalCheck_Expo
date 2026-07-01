@@ -3,7 +3,6 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -58,9 +57,9 @@ export default function AuthScreen() {
     if (error) {
       setErrorMsg(error);
     } else {
-      Alert.alert("Account created", "Check your email to confirm your address, then sign in.", [
-        { text: "OK" },
-      ]);
+      // Email confirmation is disabled (autoconfirm on), so sign-up returns an
+      // active session immediately — send them straight into the app.
+      router.back();
     }
   }
 
