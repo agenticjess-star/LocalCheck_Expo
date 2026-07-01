@@ -116,9 +116,27 @@ churn re-renders) on every pan/zoom. Courts come from AppContext/Supabase.
 
 `scripts/seed-test-data.sql` (idempotent) seeds: 6 pickleball courts, local-court
 assignments + varied ELO on the test profiles, 3 active check-ins at *Kash
-Courts*, and one completed 2v2 game. Run it in the Supabase SQL editor (MCP is
-read-only). **Note:** the app still reads check-ins/games from AsyncStorage —
-seeded rows won't surface until Stage 3 wires those reads to Supabase.
+Courts*, and one completed 2v2 game. **Applied to the live DB** (via the Supabase
+Management API with the service token). Idempotent, so safe to re-run.
+**Note:** the app still reads check-ins/games from AsyncStorage — seeded rows
+won't surface until Stage 3 wires those reads to Supabase.
+
+### Auth reality (verified 2026-06-30)
+
+- **`mailer_autoconfirm` is ON** → email sign-up returns a **live session
+  immediately** (no verification email). Great for onboarding the test crew;
+  revisit before public launch if you want verified emails.
+- **Profiles are auto-created by a DB trigger**, not the app: `auth.users` INSERT
+  fires `on_auth_user_created` → `public.handle_new_user()` (SECURITY DEFINER),
+  which inserts the `profiles` row with a generated username + display name and
+  `apple_private_email` flag. The app's `ensureProfile()` is now a redundant
+  fallback (it finds the row already there).
+- **Apple Sign-In nonce flow is correct**: raw nonce hashed (SHA-256) to Apple,
+  raw nonce to `supabase.auth.signInWithIdToken`. Still requires a dev/prod
+  build (not Expo Go).
+- ⚠️ **TODO before password-reset / OAuth deep links:** Supabase `site_url` is
+  `http://localhost:3000` and `uri_allow_list` is empty. Add `localcheck://` (and
+  the prod URL) to the redirect allow-list when those flows are built.
 
 ## 6. Bugs found & fixed in this branch
 
@@ -139,6 +157,14 @@ seeded rows won't surface until Stage 3 wires those reads to Supabase.
 4. **Map re-render churn on pan/zoom.** `MapScreen` fired a failing
    `localhost:3001` court fetch on every region change; gated behind
    `EXPO_PUBLIC_DOMAIN`.
+5. **`handle_new_user` username could exceed 32 chars** (`left(base,24)` + `_` +
+   8 hex = 33) → violated `profiles_username_check` and would **fail sign-up**
+   for long email prefixes. Patched to `left(base,23)` (max 32) and to also read
+   `display_name`/`preferred_username` from user metadata. Tracked in
+   `scripts/2026-06-30-fix-handle-new-user.sql` (already applied to the DB).
+6. **Sign-up showed a false "check your email to confirm" alert** even though
+   autoconfirm is on (no email is sent). `auth.tsx` now routes straight into the
+   app on success.
 
 ### Known open issue
 
