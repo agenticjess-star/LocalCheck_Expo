@@ -2,7 +2,7 @@
   "expo": {
     "name": "LocalCheck",
     "slug": "localcheck",
-    "owner": "agenticjess-organization",
+    "owner": "agenticjess-os",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -40,6 +40,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "9c906173-0258-45a9-a3fe-786cda373c66"
+      }
     }
   }
 }

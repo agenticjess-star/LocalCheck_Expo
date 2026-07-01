@@ -43,23 +43,23 @@ update public.profiles set elo_rating = 1235, wins = 6,  losses = 4  where id = 
 
 -- ── 3. Active check-ins at Kash Courts (so "who's here" has data) ──────────────
 insert into public.check_ins (user_id, court_id, checked_in_at, visibility)
-select u.id, 'b4ff9ba0-bbbc-4bdc-9990-6141b96039a5', now() - (u.mins || ' minutes')::interval, 'public'
+select u.id::uuid, 'b4ff9ba0-bbbc-4bdc-9990-6141b96039a5', now() - (u.mins || ' minutes')::interval, 'public'
 from (values
   ('bce777b0-4e39-4ba8-a6f8-5479c872cb06', 15),
   ('4afd1b06-d74c-4817-9ee1-ce3ed256ac3d', 40),
   ('bb6c58eb-c63c-469b-a996-87a8dceee068', 5)
 ) as u(id, mins)
 where not exists (
+  -- DB enforces one active check-in per user (any court), so guard per user.
   select 1 from public.check_ins ci
-  where ci.user_id = u.id::uuid and ci.court_id = 'b4ff9ba0-bbbc-4bdc-9990-6141b96039a5'
-    and ci.checked_out_at is null
+  where ci.user_id = u.id::uuid and ci.checked_out_at is null
 );
 
 -- ── 4. One completed game at Kash Courts (2v2) to exercise history/ELO ─────────
 with g as (
   insert into public.games (court_id, created_by, played_at, score_a, score_b, winner_side)
   select 'b4ff9ba0-bbbc-4bdc-9990-6141b96039a5', 'bce777b0-4e39-4ba8-a6f8-5479c872cb06',
-         now() - interval '2 hours', 21, 17, 'a'::team_side
+         now() - interval '2 hours', 21, 17, 'a'::game_side
   where not exists (
     select 1 from public.games
     where court_id = 'b4ff9ba0-bbbc-4bdc-9990-6141b96039a5' and score_a = 21 and score_b = 17
@@ -67,7 +67,7 @@ with g as (
   returning id
 )
 insert into public.game_participants (game_id, user_id, team_side, display_order)
-select g.id, p.user_id, p.side::team_side, p.ord
+select g.id, p.user_id::uuid, p.side::game_side, p.ord
 from g cross join (values
   ('bce777b0-4e39-4ba8-a6f8-5479c872cb06', 'a', 1),
   ('4afd1b06-d74c-4817-9ee1-ce3ed256ac3d', 'a', 2),
