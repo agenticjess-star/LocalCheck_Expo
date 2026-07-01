@@ -29,6 +29,11 @@ const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
   : `http://localhost:3001/api`;
 
+// The viewport court API (Express) is optional and only used when a domain is
+// configured. Courts otherwise come from Supabase via AppContext. Skipping this
+// avoids a failing localhost fetch (and re-render churn) on every pan/zoom.
+const API_ENABLED = !!process.env.EXPO_PUBLIC_DOMAIN;
+
 // ─── Zoom helpers ──────────────────────────────────────────────────────────────
 
 function regionToZoom(region: Region): number {
@@ -260,6 +265,7 @@ export function MapScreen() {
   // Fetch courts from API based on current region + zoom
   const fetchCourts = useCallback(
     (r: Region, z: number) => {
+      if (!API_ENABLED) return;
       if (fetchTimer.current) clearTimeout(fetchTimer.current);
       fetchTimer.current = setTimeout(async () => {
         if (fetchAbort.current) fetchAbort.current.abort();
